@@ -153,6 +153,7 @@ public class DbStoragePlainFile implements Storage {
     }
 
     private File getOriginalFile(String key) {
+        //TODO check valid file name/path with regexp
         final String tablePath = mFilesDir + File.separator + key + ".pt";
         return new File(tablePath);
     }
