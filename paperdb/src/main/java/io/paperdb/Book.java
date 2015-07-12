@@ -2,12 +2,20 @@ package io.paperdb;
 
 import android.content.Context;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
 public class Book {
+
+    private static final int NUMBER_OF_THREAD = 10;
 
     private final Storage mStorage;
 
+    private final Executor mExecutor;
+
     protected Book(Context context, String dbName) {
         mStorage = new DbStoragePlainFile(context.getApplicationContext(), dbName);
+        mExecutor = Executors.newFixedThreadPool(NUMBER_OF_THREAD);
     }
 
     /**
@@ -15,6 +23,16 @@ public class Book {
      */
     public void destroy() {
         mStorage.destroy();
+    }
+
+    public void destroy(IPaperCallback<Void> callback) {
+        mExecutor.execute(new PaperWorkerThread<Void>(this, callback) {
+            @Override
+            Void paperCall() {
+                this.mBook.destroy();
+                return null;
+            }
+        });
     }
 
     /**
@@ -34,6 +52,15 @@ public class Book {
         return this;
     }
 
+    public <T> void writeAsync(final String key, final T value, IPaperCallback<Void> callback) {
+        mExecutor.execute(new PaperWorkerThread<Book>(this, callback) {
+            @Override
+            Book paperCall() {
+                return this.mBook.write(key, value);
+            }
+        });
+    }
+
     /**
      * Instantiates saved object using original object class (e.g. LinkedList). Support limited
      * backward and forward compatibility: removed fields are ignored, new fields have their
@@ -46,6 +73,15 @@ public class Book {
      */
     public <T> T read(String key) {
         return read(key, null);
+    }
+
+    public <T> void readAsync(final String key, IPaperCallback<T> callback) {
+        mExecutor.execute(new PaperWorkerThread<T>(this, callback) {
+            @Override
+            T paperCall() {
+                return this.mBook.read(key);
+            }
+        });
     }
 
     /**
@@ -64,6 +100,15 @@ public class Book {
         return value == null ? defaultValue : value;
     }
 
+    public <T> void readAsync(final String key, final T defaultValue, IPaperCallback<T> callback) {
+        mExecutor.execute(new PaperWorkerThread<T>(this, callback) {
+            @Override
+            T paperCall() {
+                return this.mBook.read(key, defaultValue);
+            }
+        });
+    }
+
     /**
      * Check if an object with the given key is saved in Book storage.
      *
@@ -72,6 +117,15 @@ public class Book {
      */
     public boolean exist(String key) {
         return mStorage.exist(key);
+    }
+
+    public <T> void existAsync(final String key, IPaperCallback<T> callback) {
+        mExecutor.execute(new PaperWorkerThread<Boolean>(this, callback) {
+            @Override
+            Boolean paperCall() {
+                return this.mBook.exist(key);
+            }
+        });
     }
 
     /**
@@ -83,4 +137,13 @@ public class Book {
         mStorage.deleteIfExists(key);
     }
 
+    public <T> void deleteAsync(final String key, IPaperCallback<T> callback) {
+        mExecutor.execute(new PaperWorkerThread<Void>(this, callback) {
+            @Override
+            Void paperCall() {
+                this.mBook.delete(key);
+                return null;
+            }
+        });
+    }
 }
